@@ -121,6 +121,92 @@ test('собранный код Code-ноды не содержит require()', 
   assert.ok(code.includes('return $input.all();'), 'нет возврата элементов');
 });
 
+// ── валидатор ───────────────────────────────────────────────────────────────
+//
+// Валидатор должен не только пропускать целые потоки, но и падать на битых.
+// Второе важнее: пропущенная ошибка уезжает в прод.
+
+const { validate } = require('./validate');
+
+const validWorkflow = () => ({
+  name: 'Test',
+  nodes: [
+    { name: 'Webhook', type: 'n8n-nodes-base.webhook', parameters: {} },
+    { name: 'Do', type: 'n8n-nodes-base.noOp', parameters: {} },
+  ],
+  connections: { Webhook: { main: [[{ node: 'Do', type: 'main', index: 0 }]] } },
+  settings: { executionOrder: 'v1' },
+});
+
+const errorsOf = (wf) => validate(wf, 'test.json').errors;
+
+test('валидатор пропускает корректный поток', () => {
+  assert.deepStrictEqual(errorsOf(validWorkflow()), []);
+});
+
+test('валидатор ловит связь на несуществующую ноду', () => {
+  const wf = validWorkflow();
+  wf.connections.Webhook.main[0][0].node = 'Опечатка';
+  const errors = errorsOf(wf);
+  assert.ok(errors.some((e) => e.includes('несуществующая нода')), errors.join('; '));
+});
+
+test('валидатор ловит дубль имени ноды', () => {
+  const wf = validWorkflow();
+  wf.nodes.push({ name: 'Do', type: 'n8n-nodes-base.noOp', parameters: {} });
+  assert.ok(errorsOf(wf).some((e) => e.includes('дубль имени')));
+});
+
+test('валидатор ловит поток без триггера', () => {
+  const wf = validWorkflow();
+  wf.nodes[0] = { name: 'Webhook', type: 'n8n-nodes-base.noOp', parameters: {} };
+  assert.ok(errorsOf(wf).some((e) => e.includes('нет ни одной триггер-ноды')));
+});
+
+test('валидатор ловит запрещённый ключ в settings', () => {
+  const wf = validWorkflow();
+  wf.settings.somethingWeird = true;
+  const errors = errorsOf(wf);
+  assert.ok(errors.some((e) => e.includes('не принимается public API')), errors.join('; '));
+});
+
+test('валидатор ловит Code-ноду без кода', () => {
+  const wf = validWorkflow();
+  wf.nodes.push({ name: 'Empty', type: 'n8n-nodes-base.code', parameters: {} });
+  assert.ok(errorsOf(wf).some((e) => e.includes('без кода')));
+});
+
+test('валидатор ловит require() внутри Code-ноды', () => {
+  const wf = validWorkflow();
+  wf.nodes.push({
+    name: 'Bad',
+    type: 'n8n-nodes-base.code',
+    parameters: { jsCode: "const x = require('fs');" },
+  });
+  assert.ok(errorsOf(wf).some((e) => e.includes('require()')));
+});
+
+test('валидатор ловит поток без нод', () => {
+  assert.ok(errorsOf({ name: 'Empty', nodes: [], connections: {} }).some((e) => e.includes('нет нод')));
+});
+
+test('respondToWebhook не считается вторым триггером', () => {
+  const wf = validWorkflow();
+  wf.nodes.push({ name: 'Respond', type: 'n8n-nodes-base.respondToWebhook', parameters: {} });
+  wf.connections.Do = { main: [[{ node: 'Respond', type: 'main', index: 0 }]] };
+  const { errors, warnings } = validate(wf, 'test.json');
+  assert.deepStrictEqual(errors, []);
+  assert.ok(!warnings.some((w) => w.includes('триггеров больше одного')), warnings.join('; '));
+});
+
+test('висячая нода даёт предупреждение, но не ошибку', () => {
+  const wf = validWorkflow();
+  wf.nodes.push({ name: 'Orphan', type: 'n8n-nodes-base.noOp', parameters: {} });
+  const { errors, warnings } = validate(wf, 'test.json');
+  assert.deepStrictEqual(errors, []);
+  assert.ok(warnings.some((w) => w.includes('не связана ни с чем')));
+});
+
 // ── итог ────────────────────────────────────────────────────────────────────
 
 console.log(`\nтестов пройдено: ${passed}, провалено: ${failed}`);
