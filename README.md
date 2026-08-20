@@ -4,9 +4,7 @@
 логика живёт в git, конфигурация потока — артефакт сборки, деплой идёт из CI,
 а не мышкой в интерфейсе на проде.
 
-[![CI](https://github.com/USERNAME/n8n-workflow-cicd/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/n8n-workflow-cicd/actions/workflows/ci.yml)
-
-> Замените `USERNAME` на свой GitHub-логин после создания репозитория.
+[![CI](https://github.com/ivshymi/n8n-workflow-cicd/actions/workflows/ci.yml/badge.svg)](https://github.com/ivshymi/n8n-workflow-cicd/actions/workflows/ci.yml)
 
 ---
 
