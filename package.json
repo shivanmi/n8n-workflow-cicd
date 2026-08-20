@@ -1,0 +1,18 @@
+{
+  "name": "n8n-workflow-cicd",
+  "version": "1.0.0",
+  "description": "Сборка, валидация и деплой потоков n8n из кода",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node tools/build.js",
+    "validate": "node tools/validate.js",
+    "deploy": "node tools/deploy.js",
+    "deploy:dry": "node tools/deploy.js --dry-run",
+    "test": "node tools/test.js",
+    "ci": "npm run build && npm run validate && npm test"
+  },
+  "license": "MIT"
+}

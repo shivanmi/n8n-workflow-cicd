@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-validate:
+    name: Сборка, валидация, тесты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Тесты логики Code-нод
+        run: npm test
+
+      - name: Сборка потоков из кода
+        run: npm run build
+
+      - name: Валидация собранных потоков
+        run: npm run validate
+
+      - name: Сохранить артефакты сборки
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflows
+          path: dist/
+          retention-days: 14
+
+  deploy:
+    name: Деплой в n8n
+    needs: build-and-validate
+    runs-on: ubuntu-latest
+    # Деплой только с main и только вручную подтверждённый через environment.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Сборка
+        run: npm run build
+
+      - name: Деплой
+        env:
+          N8N_URL: ${{ secrets.N8N_URL }}
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+        # Без секретов скрипт печатает план и выходит с кодом 0 —
+        # форк без доступов не роняет пайплайн.
+        run: npm run deploy

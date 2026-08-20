@@ -1,0 +1,10 @@
+# Артефакты сборки: источник правды — код в src/, а не JSON
+dist/
+
+# Секреты
+.env
+.env.local
+
+node_modules/
+npm-debug.log*
+.DS_Store

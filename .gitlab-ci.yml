@@ -1,0 +1,43 @@
+# Тот же пайплайн для GitLab. Логика одна: собрать из кода, проверить, доставить.
+#
+# Переменные N8N_URL и N8N_API_KEY задаются в Settings → CI/CD → Variables,
+# обязательно с флагами Masked и Protected.
+
+image: node:20-alpine
+
+stages:
+  - test
+  - build
+  - deploy
+
+default:
+  interruptible: true
+
+тесты:
+  stage: test
+  script:
+    - npm test
+
+сборка:
+  stage: build
+  script:
+    - npm run build
+    - npm run validate
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 14 days
+
+деплой:
+  stage: deploy
+  needs: ["сборка"]
+  # Только защищённая ветка и только вручную — доставка в прод
+  # не должна происходить от каждого коммита.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: false
+  environment:
+    name: production
+  script:
+    - npm run deploy
